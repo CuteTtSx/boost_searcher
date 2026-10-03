@@ -1,0 +1,15 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "compilerPath": "/usr/bin/g++",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/home/zzy/third_party/cppjieba/include"
+            ],
+            "cppStandard": "c++11",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}
