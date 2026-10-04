@@ -6,8 +6,9 @@
 
 namespace fs = boost::filesystem;
 
-const std::string root_dir_name = "/home/zzy/boost_searcher/data/input"; //一个目录, 存放所有html文件的根目录
+const std::string root_dir_name = "/home/zzy/boost_searcher/data/input/"; //一个目录, 存放所有html文件的根目录
 const std::string output_file_name = "/home/zzy/boost_searcher/data/output/raw.txt"; //保存解析后的文档信息的文件路径
+const std::string boost_url_head = "https://www.boost.org/doc/libs/1_78_0/doc/html/"; 
 const char DOC_SEPARATOR = '\3'; //每个文档的分割符
 
 typedef struct Docinfo
@@ -139,8 +140,10 @@ static bool ParseFileContent(const std::string& file, std::string* content)
 static bool ParseFileUrl(const std::string& file_path, std::string* url)
 {
     fs::path path = fs::path(file_path);
-    std::string url_head = "https://www.boost.org/doc/libs/1_72_0/doc/html/";
-    std::string url_tail = path.filename().string();
+    std::string url_head = boost_url_head;
+
+    // std::string url_tail = path.filename().string(); // 注意: 不能这么写, 因为我们需要保留相对路径信息
+    std::string url_tail = file_path.substr(root_dir_name.size());
     *url = url_head + url_tail;
 
     return true;

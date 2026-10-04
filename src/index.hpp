@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <fstream>
 #include "util.hpp"
+#include <mutex>
 
 namespace ns_index
 {
@@ -23,6 +24,8 @@ namespace ns_index
         int weight;
     };
 
+    using InvertedList = std::vector<InvertedIndexElement_t>;
+
     typedef struct WordCnt
     {
         int title_count;
@@ -31,18 +34,36 @@ namespace ns_index
 
     class Index
     {
-    using InvertedList = std::vector<InvertedIndexElement_t>;
-
-    static const int TITLE_WEIGHT = 10;
-    static const int CONTENT_WEIGHT = 1;
+        static const int TITLE_WEIGHT = 10;
+        static const int CONTENT_WEIGHT = 1;
 
     private:
         std::vector<DocInfo_t> _forward_index; //正排索引, doc_id -> 文档内容的映射
         std::unordered_map<std::string, InvertedList> _inverted_index; // 倒排索引, 关键词 -> 文档信息的映射
-    public:
+        static Index* _instance; // 单例实例
+        static std::mutex _mutex; // 互斥锁，用于线程安全的单例初始化
+    private:
         Index() {}
+        Index(const Index&) = delete; // 禁止拷贝构造
+        Index& operator=(const Index&) = delete; // 禁止拷贝赋值
         ~Index() {}
+
     public:
+        static Index* GetInstance()
+        {
+            // 防止多线程大量请求锁资源
+            if(nullptr == _instance)
+            {
+                // 建立互斥锁, 防止多线程进入临界区创建多分实例
+                std::lock_guard<std::mutex> lock(_mutex);
+                if(nullptr == _instance)
+                {
+                    _instance = new Index();
+                }
+            }
+            return _instance;
+        }
+
         DocInfo_t* GetDocInfoById(uint64_t doc_id)
         {
             if(doc_id >= _forward_index.size())
@@ -52,6 +73,7 @@ namespace ns_index
             }
             return &(_forward_index[doc_id]);
         }
+
         InvertedList* GetInvertedIndexByWord(const std::string& word)
         {
             auto it = _inverted_index.find(word);
@@ -62,7 +84,7 @@ namespace ns_index
             return &(it->second);
         }
 
-        //建立倒排索引
+        //建立索引
         bool BuildIndex(const std::string& input_file_path, const std::string& separator)
         {
             std::ifstream ifs(input_file_path, std::ios::in);
@@ -72,24 +94,29 @@ namespace ns_index
                 return false;
             }
 
+            int cnt = 0;
             std::string doc;
             while(std::getline(ifs, doc))
             {
-                //构建正排索引
+                //1. 构建正排索引
                 DocInfo_t* doc_info = BuildForwardIndex(doc, separator);
                 if(nullptr == doc_info)
                 {
                     std::cerr << "Failed to build forward index for line: " << doc << std::endl;
                     continue;
                 }
-                //构建倒排索引
+                //2. 构建倒排索引
                 if(!BuildInvertedIndex(*doc_info))
                 {
                     std::cerr << "Failed to build inverted index for doc_id: " << doc_info->doc_id << std::endl;
                     continue;
                 }
+                cnt++;
+                if(cnt % 100 == 0)
+                {
+                    std::cout << "成功构建 " << cnt << " 条索引" << std::endl;
+                }
             }
-
             return true;
         }
     private: 
@@ -117,7 +144,7 @@ namespace ns_index
             
             return &(_forward_index.back());
         }
-
+        //建立倒排索引
         bool BuildInvertedIndex(const DocInfo_t& doc_info)
         {
             //1. 先分词
@@ -152,4 +179,6 @@ namespace ns_index
             return true;
         }
     };
+    Index* Index::_instance = nullptr;
+    std::mutex Index::_mutex;
 }
